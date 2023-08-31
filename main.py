@@ -4,43 +4,57 @@ import pandas as pd
 import datetime
 
 
-def change_row(raw: str) -> str:
+def get_row_height(raw: str) -> int:
+    height = 24
+    # 1行
     if len(raw) <= 9:
-        return raw
-    list = []
-    for i, v in enumerate(raw):
-        if i != 0 and i % 9 == 0:
-            list.append('\n')
-        list.append(v)
-    return ''.join(list)
+        return height
+    raw_lenght = len(raw)
+    # 超过9个就换行
+    break_count = 9
+    row_count = int(raw_lenght / break_count)
+    # 2行
+    if row_count == 1:
+        height += 7
+        return height
+    # 3行以上
+    height = (row_count - 1) * 16
+
+    if raw_lenght % break_count != 0:
+        height += 16
+    return height
 
 
-def stamp(worksheet1, data_len: int):
-    break_page = 28
-    page_size_list = []
-    last_pic_row = data_len + 5
-    page_size = 0
-    last_index = int((last_pic_row + 1) / break_page)
+def stamp(worksheet1, row_height_list: list):
+    # 6 = 前面4行 + 合计 + 发货人
+    page_height = 760
+    page_count = 1
+    total_height = 0
+    break_list = []
+    for i, height in enumerate(row_height_list, 1):
+        total_height += height
+        if total_height >= page_height * page_count:
+            break_list.append(i - 1)
+            page_count += 1
 
-    pic_index = 0
-    for i in range(0, last_pic_row + 1, break_page):
-        if pic_index == last_index - 1 and (last_pic_row + 1) % break_page == 1:
-            page_size_list.append(page_size + break_page + 1)
-            worksheet1.insert_image(
-                f'C{i+2}',
-                png_name,
-                {'x_scale': 100 / 102, 'y_scale': 100 * 1.1 / 101},
-            )
-            break
-        last_index += 1
-        loc = f'C{i+2}'
-        page_size += break_page
-        page_size_list.append(page_size)
+    # 如果最后一页只有一条数据，则把倒数第二条数据也放到最后一页
+    rest_height = total_height - len(break_list) * page_height
+    if rest_height - 60 <= 0:
+        break_list.pop()
+        break_list.append(len(row_height_list) - 2)
+
+    worksheet1.insert_image(
+        f'C2',
+        png_name,
+        {'x_scale': 100 / 102, 'y_scale': 100 * 1.1 / 101},
+    )
+    for i in break_list:
         worksheet1.insert_image(
-            loc, png_name, {'x_scale': 100 / 102, 'y_scale': 100 * 1.1 / 101}
+            f'C{i+1}',
+            png_name,
+            {'x_scale': 100 / 102, 'y_scale': 100 * 1.1 / 101, 'y_offset': 2},
         )
-
-    worksheet1.set_h_pagebreaks(page_size_list)
+    worksheet1.set_h_pagebreaks(break_list)
 
 
 def write_one(
@@ -182,6 +196,8 @@ def write_one(
     for index, v in enumerate(columns):
         worksheet1.write(3, index, v, fmt_row4)
 
+    row_height_list = [35, 27, 27, 27]
+
     sum = 0
     df_index = 0
     for _, row in df.iterrows():
@@ -189,16 +205,10 @@ def write_one(
         row_index = df_index + 4
         df_index += 1
 
-        multi = change_row(row['B'])
-        count = multi.count('\n')
-        height = 24
-        if count == 0:
-            height = 24
-        elif count == 1:
-            height = 31.2
-        else:
-            height = 46.8
+        height = get_row_height(row['B'])
         worksheet1.set_row(row_index, height)
+        row_height_list.append(height)
+
         worksheet1.write(row_index, 0, index, fmt_row5)
 
         worksheet1.write(row_index, 1, row['B'], fmt_row5)
@@ -225,8 +235,9 @@ def write_one(
     s7 = '     收货人：                                            监督人：'
     worksheet1.merge_range(row_index, 0, row_index, 6, s7, fmt_row_last)
 
+    row_height_list.extend([24, 60])
     # 打印图章
-    stamp(worksheet1, data_row_len)
+    stamp(worksheet1, row_height_list)
 
     writer.close()
     pass
@@ -257,7 +268,7 @@ def write_all(folder_path, xlsx_path, sheet_name_list, png_name):
 
     date_set = set(date_list)
     for v in date_set:
-        # if v != '2023-06-02':
+        # if v != '2023-05-30':
         #     continue
         df4 = df3.query('M == @v')
         write_one(folder_path, v, df4, png_name)
