@@ -15,7 +15,37 @@ def change_row(raw: str) -> str:
     return ''.join(list)
 
 
-def write_one(folder_path: str, date: datetime.datetime, df: pd.DataFrame):
+def stamp(worksheet1, data_len: int):
+    break_page = 28
+    page_size_list = []
+    last_pic_row = data_len + 5
+    page_size = 0
+    last_index = int((last_pic_row + 1) / break_page)
+
+    pic_index = 0
+    for i in range(0, last_pic_row + 1, break_page):
+        if pic_index == last_index - 1 and (last_pic_row + 1) % break_page == 1:
+            page_size_list.append(page_size + break_page + 1)
+            worksheet1.insert_image(
+                f'C{i+2}',
+                png_name,
+                {'x_scale': 100 / 102, 'y_scale': 100 * 1.1 / 101},
+            )
+            break
+        last_index += 1
+        loc = f'C{i+2}'
+        page_size += break_page
+        page_size_list.append(page_size)
+        worksheet1.insert_image(
+            loc, png_name, {'x_scale': 100 / 102, 'y_scale': 100 * 1.1 / 101}
+        )
+
+    worksheet1.set_h_pagebreaks(page_size_list)
+
+
+def write_one(
+    folder_path: str, date: datetime.datetime, df: pd.DataFrame, png_name: str
+):
     datetime_object = datetime.datetime.strptime(date, '%Y-%m-%d')
 
     file_name = datetime_object.strftime('%Y-%m-%d')
@@ -82,6 +112,29 @@ def write_one(folder_path: str, date: datetime.datetime, df: pd.DataFrame):
         }
     )
 
+    fmt_row_sum_head = workbook1.add_format(
+        {
+            "font_name": u"宋体",
+            'font_size': 12,
+            'bold': True,
+            'align': 'centre',
+            'valign': 'vcentre',
+            'border': 1,
+        }
+    )
+
+    fmt_row_sum_value = workbook1.add_format(
+        {
+            "font_name": u"宋体",
+            'font_size': 12,
+            'bold': True,
+            'align': 'centre',
+            'valign': 'vcentre',
+            'border': 1,
+            'num_format': '#,##0.00',
+        }
+    )
+
     fmt_row_last = workbook1.add_format(
         {
             "font_name": u"宋体",
@@ -96,8 +149,8 @@ def write_one(folder_path: str, date: datetime.datetime, df: pd.DataFrame):
     worksheet1.set_column('C:C', 8.89)
     worksheet1.set_column('D:D', 10)
     worksheet1.set_column('E:E', 10.44)
-    worksheet1.set_column('F:F', 11)
-    worksheet1.set_column('G:G', 9.33)
+    worksheet1.set_column('F:F', 13)
+    worksheet1.set_column('G:G', 7.33)
 
     # df = df.astype(str)
 
@@ -129,6 +182,7 @@ def write_one(folder_path: str, date: datetime.datetime, df: pd.DataFrame):
     for index, v in enumerate(columns):
         worksheet1.write(3, index, v, fmt_row4)
 
+    sum = 0
     df_index = 0
     for _, row in df.iterrows():
         index = df_index + 1
@@ -154,11 +208,26 @@ def write_one(folder_path: str, date: datetime.datetime, df: pd.DataFrame):
         worksheet1.write(row_index, 5, row['F'], fmt_row6)
         worksheet1.write(row_index, 6, '', fmt_row5)
 
-    # 最后一行
-    row_index = len(df) + 3 + 1
+        sum += row['F']
+
+    # 合计：倒数第二行
+    data_row_len = len(df)
+    row_index = data_row_len + 4
+    worksheet1.set_row(row_index, 24)
+    s6 = '合计'
+    worksheet1.merge_range(row_index, 0, row_index, 4, s6, fmt_row_sum_head)
+    worksheet1.write(row_index, 5, sum, fmt_row_sum_value)
+    worksheet1.write(row_index, 6, '', fmt_row_sum_value)
+
+    # 收货人：最后一行
+    row_index += 1
     worksheet1.set_row(row_index, 60)
-    s6 = '     收货人：                                            监督人：'
-    worksheet1.merge_range(row_index, 0, row_index, 6, s6, fmt_row_last)
+    s7 = '     收货人：                                            监督人：'
+    worksheet1.merge_range(row_index, 0, row_index, 6, s7, fmt_row_last)
+
+    # 打印图章
+    stamp(worksheet1, data_row_len)
+
     writer.close()
     pass
 
@@ -175,7 +244,7 @@ def read_all(xlsx_path: str, sheet_name_list: list) -> dict[pd.DataFrame]:
     pass
 
 
-def write_all(folder_path, xlsx_path, sheet_name_list, xlsx_name):
+def write_all(folder_path, xlsx_path, sheet_name_list, png_name):
     df1 = read_all(xlsx_path, sheet_name_list)
     list = []
     for i, df2 in df1.items():
@@ -187,9 +256,11 @@ def write_all(folder_path, xlsx_path, sheet_name_list, xlsx_name):
     date_list.sort()
 
     date_set = set(date_list)
-    for i in date_set:
-        df4 = df3.query('M == @i')
-        write_one(folder_path, i, df4)
+    for v in date_set:
+        # if v != '2023-06-02':
+        #     continue
+        df4 = df3.query('M == @v')
+        write_one(folder_path, v, df4, png_name)
 
 
 if __name__ == '__main__':
@@ -203,10 +274,10 @@ if __name__ == '__main__':
         '17674',
         '14340',
     ]
-    xlsx_name = '配送单'
     xlsx_path = 'zj.xlsx'
     folder_path = 'data'
+    png_name = 'wufeng.png'
     if not os.path.isdir(folder_path):
         os.makedirs(folder_path)
-    write_all(folder_path, xlsx_path, sheet_name_list, xlsx_name)
+    write_all(folder_path, xlsx_path, sheet_name_list, png_name)
     pass
