@@ -25,7 +25,7 @@ def get_row_height(raw: str) -> int:
     return height
 
 
-def stamp(worksheet1, row_height_list: list):
+def stamp(worksheet1, row_height_list: list, png_name):
     # 6 = 前面4行 + 合计 + 发货人
     page_height = 760
     page_count = 1
@@ -46,13 +46,13 @@ def stamp(worksheet1, row_height_list: list):
     worksheet1.insert_image(
         f'C2',
         png_name,
-        {'x_scale': 100 / 102, 'y_scale': 100 * 1.1 / 101},
+        {'x_scale': 4.2 / (4 * 4.62), 'y_scale': 3 / (4 * 3.14)},
     )
     for i in break_list:
         worksheet1.insert_image(
             f'C{i+1}',
             png_name,
-            {'x_scale': 100 / 102, 'y_scale': 100 * 1.1 / 101, 'y_offset': 2},
+            {'x_scale': 25 / 100, 'y_scale': 25 / 100, 'y_offset': 2},
         )
     worksheet1.set_h_pagebreaks(break_list)
 
@@ -237,7 +237,7 @@ def write_one(
 
     row_height_list.extend([24, 60])
     # 打印图章
-    stamp(worksheet1, row_height_list)
+    stamp(worksheet1, row_height_list, png_name)
 
     writer.close()
     pass
@@ -268,8 +268,8 @@ def write_all(folder_path, xlsx_path, sheet_name_list, png_name):
 
     date_set = set(date_list)
     for v in date_set:
-        # if v != '2023-05-30':
-        #     continue
+        if v != '2023-05-30':
+            continue
         df4 = df3.query('M == @v')
         write_one(folder_path, v, df4, png_name)
 
@@ -285,9 +285,9 @@ if __name__ == '__main__':
         '17674',
         '14340',
     ]
-    xlsx_path = 'zj.xlsx'
+    xlsx_path = 'dingan.xlsx'
     folder_path = 'data'
-    png_name = 'wufeng.png'
+    png_name = 'shian.png'
     if not os.path.isdir(folder_path):
         os.makedirs(folder_path)
     write_all(folder_path, xlsx_path, sheet_name_list, png_name)
